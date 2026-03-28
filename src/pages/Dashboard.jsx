@@ -3,11 +3,13 @@ import { Link, useNavigate, Navigate } from "react-router-dom";
 import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal } from "../components/Shared";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const quickActions = [
     {
       label: "Add Faculty",
       sub: "Create new profile",
       bg: "#dbeafe",
+      path: "/faculty",
       icon: (
         <svg
           width="22"
@@ -30,6 +32,7 @@ export default function Dashboard() {
       label: "Assign Schedule",
       sub: "Set class times",
       bg: "#f3e8ff",
+      path: "/schedule",
       icon: (
         <svg
           width="22"
@@ -52,6 +55,7 @@ export default function Dashboard() {
       label: "Approve Leave",
       sub: "Review requests",
       bg: "#dcfce7",
+      path: "/leave",
       icon: (
         <svg
           width="22"
@@ -72,6 +76,7 @@ export default function Dashboard() {
       label: "Export Report",
       sub: "Generate summary",
       bg: "#fff7ed",
+      path: "/attendance",
       icon: (
         <svg
           width="22"
@@ -200,6 +205,7 @@ export default function Dashboard() {
         {quickActions.map((a) => (
           <button
             key={a.label}
+            onClick={() => navigate(a.path)}
             style={{
               background: a.bg,
               border: "none",
