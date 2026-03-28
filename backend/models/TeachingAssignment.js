@@ -12,7 +12,7 @@ const TeachingAssignmentSchema = new mongoose.Schema(
     perf: { type: String, required: true, trim: true },
     rating: { type: Number, default: 0, min: 0, max: 5 },
     schedule: { type: String, default: "" },
-    init: { type: String, default: "" },
+    initials: { type: String, default: "" },
   },
   { timestamps: true, suppressReservedKeysWarning: true },
 );

@@ -16,7 +16,7 @@ const LeaveRequestSchema = new mongoose.Schema(
     endDate: { type: String, required: true },
     durationLabel: { type: String, default: "" }, // "3 Days"
     submittedAtLabel: { type: String, default: "" }, // "2 hours ago"
-    init: { type: String, required: true, trim: true },
+    initials: { type: String, required: true, trim: true },
     tagColor: { type: String, default: "" },
   },
   { timestamps: true, suppressReservedKeysWarning: true },

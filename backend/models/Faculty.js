@@ -10,7 +10,7 @@ const FacultySchema = new mongoose.Schema(
     load: { type: String, required: true, trim: true }, // "18 Units"
     att: { type: String, required: true, trim: true }, // Present / Absent / On Leave
     clear: { type: String, required: true, trim: true }, // Pending / Completed / Incomplete
-    init: { type: String, required: true, trim: true },
+    initials: { type: String, required: true, trim: true },
   },
   { timestamps: true, suppressReservedKeysWarning: true },
 );

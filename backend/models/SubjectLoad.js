@@ -11,7 +11,7 @@ const SubjectLoadSchema = new mongoose.Schema(
     hrs: { type: String, required: true, trim: true },
     sections: { type: Number, required: true },
     status: { type: String, required: true, trim: true }, // Normal / Overload
-    init: { type: String, required: true, trim: true },
+    initials: { type: String, required: true, trim: true },
   },
   { timestamps: true, suppressReservedKeysWarning: true },
 );

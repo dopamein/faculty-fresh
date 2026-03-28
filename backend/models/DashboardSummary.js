@@ -10,7 +10,7 @@ const DashboardSummarySchema = new mongoose.Schema(
         tag: { type: String, required: true, trim: true },
         dept: { type: String, required: true, trim: true },
         tagColor: { type: String, required: true, trim: true },
-        init: { type: String, required: true, trim: true },
+        initials: { type: String, required: true, trim: true },
       },
     ],
     depts: [

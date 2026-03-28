@@ -11,3 +11,4 @@ const AllowanceSchema = new mongoose.Schema(
 
 module.exports = mongoose.model("Allowance", AllowanceSchema);
 
+  

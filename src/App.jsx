@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate, useLocation, Link } from "react-router-dom";
 
 const SIDEBAR_BG = "#1a0a6b";
 const ACCENT = "#3d2fb0";
@@ -233,10 +234,12 @@ const Avatar = ({ initials, size = 36 }) => (
 );
 
 async function apiFetch(path, options = {}) {
+  const token = localStorage.getItem("token");
   const res = await fetch(path, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
   });
@@ -516,45 +519,45 @@ function Dashboard() {
       action: "Submitted leave application for March 15-20, 2026",
       time: "2 hours ago",
       tag: "Pending Review",
-      dept: "Computer Science",
+      dept: "Network Implementation and Support II",
       tagColor: "yellow",
-      init: "MC",
+      initials: "MC",
     },
     {
       name: "Prof. Supafly",
       action: "Schedule conflict detected for MATH-301 on Tuesdays",
       time: "4 hours ago",
       tag: "Action Required",
-      dept: "Mathematics",
+      dept: "Business Process Management in IT",
       tagColor: "red",
-      init: "SW",
+      initials: "SW",
     },
     {
       name: "Prof. Cardo Mulet",
       action: "Completed clearance requirements for Spring 2026",
       time: "6 hours ago",
       tag: "Completed",
-      dept: "Engineering",
+      dept: "Information Assurance and Security 2",
       tagColor: "green",
-      init: "JR",
+      initials: "JR",
     },
     {
       name: "Prof. Hev Abai",
       action: "Attendance record updated - 3 absences this month",
       time: "1 day ago",
       tag: "Info",
-      dept: "Business",
+      dept: "System Administration and Maintenance",
       tagColor: "blue",
-      init: "ET",
+      initials: "ET",
     },
   ];
   const [activities, setActivities] = useState(defaultActivities);
 
   const defaultDepts = [
-    { name: "Computer Science", count: 48, color: SIDEBAR_BG, pct: 70 },
-    { name: "Engineering", count: 62, color: ACCENT, pct: 90 },
-    { name: "Mathematics", count: 35, color: "#22c55e", pct: 50 },
-    { name: "Business", count: 52, color: "#f59e0b", pct: 75 },
+    { name: "Network Implementation and Support II", count: 48, color: SIDEBAR_BG, pct: 70 },
+    { name: "Information Assurance and Security 2", count: 62, color: ACCENT, pct: 90 },
+    { name: "Business Process Management in IT", count: 35, color: "#22c55e", pct: 50 },
+    { name: "System Administration and Maintenance", count: 52, color: "#f59e0b", pct: 75 },
     { name: "Arts & Sciences", count: 50, color: "#14b8a6", pct: 72 },
   ];
 
@@ -563,6 +566,8 @@ function Dashboard() {
   const [upcomingTasksText, setUpcomingTasksText] = useState(
     "Review 18 leave requests",
   );
+  const [deptFilter, setDeptFilter] = useState("All Departments");
+  const [deptOptions, setDeptOptions] = useState(["All Departments"]);
 
   useEffect(() => {
     apiFetch("/api/dashboard")
@@ -577,13 +582,34 @@ function Dashboard() {
       .catch(() => {});
   }, []);
 
-  const quickActionToPage = (label) => {
-    if (label === "Add Faculty") return "faculty";
-    if (label === "Assign Schedule") return "schedule";
-    if (label === "Approve Leave") return "leave";
-    if (label === "Export Report") return "history";
-    return null;
-  };
+  useEffect(() => {
+    const loadDepartments = async () => {
+      const d = await apiFetch("/api/departments");
+      const list = Array.isArray(d?.departments) ? d.departments : [];
+      if (list.length) {
+        setDeptOptions(["All Departments", ...list]);
+        return;
+      }
+      const fallback = Array.from(
+        new Set(
+          [...activities.map((a) => a.dept), ...depts.map((d) => d.name)].filter(
+            Boolean,
+          ),
+        ),
+      ).sort();
+      setDeptOptions(["All Departments", ...fallback]);
+    };
+    loadDepartments().catch(() => {});
+  }, [activities, depts]);
+
+  const visibleActivities =
+    deptFilter === "All Departments"
+      ? activities
+      : activities.filter((a) => a.dept === deptFilter);
+  const visibleDepts =
+    deptFilter === "All Departments"
+      ? depts
+      : depts.filter((d) => d.name === deptFilter);
   return (
     <div>
       <div
@@ -612,13 +638,6 @@ function Dashboard() {
             onMouseLeave={(e) =>
               (e.currentTarget.style.transform = "translateY(0)")
             }
-            onClick={() => {
-              const pageId = quickActionToPage(a.label);
-              if (!pageId) return;
-              window.dispatchEvent(
-                new CustomEvent("nav:setPage", { detail: { pageId } }),
-              );
-            }}
           >
             <div style={{ marginBottom: 8 }}>{a.icon}</div>
             <div style={{ fontWeight: 700, color: "#111827", fontSize: 14 }}>
@@ -639,17 +658,38 @@ function Dashboard() {
             border: "1px solid #e5e7eb",
           }}
         >
-          <h2
+          <div
             style={{
-              fontWeight: 700,
-              fontSize: 16,
-              color: "#111827",
-              marginBottom: 18,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 10,
+              marginBottom: 14,
             }}
           >
-            Recent Activity
-          </h2>
-          {activities.map((a) => (
+            <h2
+              style={{
+                fontWeight: 700,
+                fontSize: 16,
+                color: "#111827",
+                margin: 0,
+              }}
+            >
+              Recent Activity
+            </h2>
+            <select
+              style={selectStyle}
+              value={deptFilter}
+              onChange={(e) => setDeptFilter(e.target.value)}
+            >
+              {deptOptions.map((dep) => (
+                <option key={dep} value={dep}>
+                  {dep}
+                </option>
+              ))}
+            </select>
+          </div>
+          {visibleActivities.map((a) => (
             <div
               key={a.name}
               style={{
@@ -660,7 +700,7 @@ function Dashboard() {
                 marginBottom: 14,
               }}
             >
-              <Avatar initials={a.init} />
+              <Avatar initials={a.initials} />
               <div style={{ flex: 1 }}>
                 <div
                   style={{ display: "flex", justifyContent: "space-between" }}
@@ -712,7 +752,7 @@ function Dashboard() {
             >
               Department Overview
             </h3>
-            {depts.map((d) => (
+            {visibleDepts.map((d) => (
               <div key={d.name} style={{ marginBottom: 14 }}>
                 <div
                   style={{
@@ -780,49 +820,50 @@ function FacultyDirectory() {
     {
       name: "Prof. Jin Gomez",
       email: "jin@bcp.edu.ph",
-      dept: "Computer Science",
+      dept: "Network Implementation and Support II",
       rank: "Professor",
       emp: "Active",
       load: "18 Units",
       att: "Present",
       clear: "Pending",
-      init: "MC",
+      initials: "MC",
     },
     {
       name: "Prof. Supafly",
       email: "supafly@bcp.edu.ph",
-      dept: "Mathematics",
+      dept: "Business Process Management in IT",
       rank: "Associate Professor",
       emp: "Active",
       load: "21 Units",
       att: "Present",
       clear: "Completed",
-      init: "SW",
+      initials: "SW",
     },
     {
       name: "Prof. Cardo Mulet",
       email: "cardo@bcp.edu.ph",
-      dept: "Engineering",
+      dept: "Information Assurance and Security 2",
       rank: "Professor",
       emp: "On Leave",
       load: "0 Units",
       att: "On Leave",
       clear: "Completed",
-      init: "JR",
+      initials: "JR",
     },
     {
       name: "Prof. Hev Abai",
       email: "hev@bcp.edu.ph",
-      dept: "Business",
+      dept: "System Administration and Maintenance",
       rank: "Assistant Professor",
       emp: "Active",
       load: "15 Units",
       att: "Absent",
       clear: "Incomplete",
-      init: "ET",
+      initials: "ET",
     },
   ];
   const [faculty, setFaculty] = useState(defaultFaculty);
+  const [searchText, setSearchText] = useState("");
   const [deptFilter, setDeptFilter] = useState("All Departments");
   const [deptOptions, setDeptOptions] = useState(["All Departments"]);
 
@@ -839,22 +880,38 @@ function FacultyDirectory() {
   }, []);
 
   useEffect(() => {
-    const unique = Array.from(
-      new Set((faculty || []).map((f) => f.dept).filter(Boolean)),
-    ).sort();
-    setDeptOptions(["All Departments", ...unique]);
-    if (deptFilter !== "All Departments" && !unique.includes(deptFilter)) {
-      setDeptFilter("All Departments");
-    }
-  }, [faculty, deptFilter]);
+    const loadDepartments = async () => {
+      const d = await apiFetch("/api/departments");
+      const fromApi = Array.isArray(d?.departments) ? d.departments : [];
+      if (fromApi.length) {
+        setDeptOptions(["All Departments", ...fromApi]);
+        return;
+      }
+
+      // fallback from local rows
+      const local = Array.from(
+        new Set((faculty || []).map((f) => f.dept).filter(Boolean)),
+      ).sort();
+      setDeptOptions(["All Departments", ...local]);
+    };
+
+    loadDepartments().catch(() => {});
+  }, [faculty]);
 
   const empColor = { Active: "green", "On Leave": "yellow" };
   const attColor = { Present: "green", "On Leave": "yellow", Absent: "red" };
   const clrColor = { Completed: "green", Pending: "yellow", Incomplete: "red" };
-  const visibleFaculty =
-    deptFilter === "All Departments"
-      ? faculty
-      : (faculty || []).filter((f) => f.dept === deptFilter);
+  const visibleFaculty = (faculty || []).filter((f) => {
+    const depMatch =
+      deptFilter === "All Departments" || f.dept === deptFilter;
+    const q = searchText.trim().toLowerCase();
+    const searchMatch =
+      !q ||
+      [f.name, f.email, f.dept, f.rank]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    return depMatch && searchMatch;
+  });
   return (
     <div
       style={{
@@ -874,6 +931,8 @@ function FacultyDirectory() {
       >
         <input
           placeholder="🔍 Search faculty..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
           style={{
             ...inputStyle,
             flex: 1,
@@ -892,9 +951,9 @@ function FacultyDirectory() {
           value={deptFilter}
           onChange={(e) => setDeptFilter(e.target.value)}
         >
-          {deptOptions.map((d) => (
-            <option key={d} value={d}>
-              {d}
+          {deptOptions.map((dep) => (
+            <option key={dep} value={dep}>
+              {dep}
             </option>
           ))}
         </select>
@@ -917,7 +976,7 @@ function FacultyDirectory() {
                     load: "18 Units",
                     att: "Present",
                     clear: "Pending",
-                    init: "",
+                    initials: "",
                   },
                   fields: [
                     { name: "name", label: "Faculty name", type: "text" },
@@ -954,7 +1013,7 @@ function FacultyDirectory() {
                         { value: "Incomplete", label: "Incomplete" },
                       ],
                     },
-                    { name: "init", label: "Initials (e.g., MC)", type: "text", fullWidth: true },
+                    { name: "initials", label: "Initials (e.g., MC)", type: "text", fullWidth: true },
                   ],
                   onSubmit: async (vals) => {
                     if (
@@ -966,7 +1025,7 @@ function FacultyDirectory() {
                       !vals.load ||
                       !vals.att ||
                       !vals.clear ||
-                      !vals.init
+                      !vals.initials
                     ) {
                       throw new Error("Please fill out all required fields.");
                     }
@@ -982,7 +1041,7 @@ function FacultyDirectory() {
                         load: vals.load,
                         att: vals.att,
                         clear: vals.clear,
-                        init: vals.init,
+                        initials: vals.initials,
                       }),
                     });
                     window.dispatchEvent(new Event("faculty:refresh"));
@@ -1037,7 +1096,7 @@ function FacultyDirectory() {
               onMouseLeave={(e) => (e.currentTarget.style.background = "")}
             >
               <td style={{ padding: "12px 14px" }}>
-                <Avatar initials={f.init} />
+                <Avatar initials={f.initials} />
               </td>
               <td style={{ padding: "12px 14px" }}>
                 <div style={{ fontWeight: 600, color: "#111827" }}>
@@ -1087,9 +1146,9 @@ function FacultyDirectory() {
                       const load = prompt("Load", f.load);
                       const att = prompt("Attendance", f.att);
                       const clear = prompt("Clearance", f.clear);
-                      const init = prompt("Initials", f.init);
+                      const initials = prompt("Initials", f.initials);
 
-                      if (!name || !email || !dept || !rank || !emp || !load || !att || !clear || !init)
+                      if (!name || !email || !dept || !rank || !emp || !load || !att || !clear || !initials)
                         return;
 
                       await apiFetch(`/api/faculty/${f._id}`, {
@@ -1103,7 +1162,7 @@ function FacultyDirectory() {
                           load,
                           att,
                           clear,
-                          init,
+                          initials,
                         }),
                       });
                       window.dispatchEvent(new Event("faculty:refresh"));
@@ -1169,39 +1228,42 @@ function SubjectLoadTracker() {
   const defaultSubjectLoads = [
     {
       name: "Prof. Jin Gomez",
-      id: "FAC-2024-0123",
-      dept: "Computer Science",
+      id: "FAC-2026-0123",
+      dept: "Network Implementation and Support II",
       subjects: "CS401, CS502, CS301",
       units: 18,
       hrs: "18 hrs",
       sections: 3,
       status: "Normal",
-      init: "MC",
+      initials: "MC",
     },
     {
       name: "Prof. Supafly",
-      id: "FAC-2024-0045",
-      dept: "Mathematics",
+      id: "FAC-2026-0045",
+      dept: "Business Process Management in IT",
       subjects: "MATH201, MATH301, MATH401",
       units: 24,
       hrs: "24 hrs",
       sections: 4,
       status: "Overload",
-      init: "SJ",
+      initials: "SJ",
     },
     {
       name: "Prof. Cardo Mulet",
-      id: "FAC-2024-0089",
-      dept: "Engineering",
+      id: "FAC-2026-0089",
+      dept: "Information Assurance and Security 2",
       subjects: "ENG301, ENG401",
       units: 12,
       hrs: "12 hrs",
       sections: 2,
       status: "Normal",
-      init: "RM",
+      initials: "RM",
     },
   ];
   const [faculty, setFaculty] = useState(defaultSubjectLoads);
+  const [searchText, setSearchText] = useState("");
+  const [deptFilter, setDeptFilter] = useState("All Departments");
+  const [deptOptions, setDeptOptions] = useState(["All Departments"]);
 
   useEffect(() => {
     const load = async () => {
@@ -1215,6 +1277,33 @@ function SubjectLoadTracker() {
     return () =>
       window.removeEventListener("subject-loads:refresh", onRefresh);
   }, []);
+
+  useEffect(() => {
+    const loadDepartments = async () => {
+      const d = await apiFetch("/api/departments");
+      const list = Array.isArray(d?.departments) ? d.departments : [];
+      if (list.length) {
+        setDeptOptions(["All Departments", ...list]);
+        return;
+      }
+      const local = Array.from(
+        new Set((faculty || []).map((f) => f.dept).filter(Boolean)),
+      ).sort();
+      setDeptOptions(["All Departments", ...local]);
+    };
+    loadDepartments().catch(() => {});
+  }, [faculty]);
+
+  const visibleSubjectLoads = (faculty || []).filter((f) => {
+    const depMatch = deptFilter === "All Departments" || f.dept === deptFilter;
+    const q = searchText.trim().toLowerCase();
+    const searchMatch =
+      !q ||
+      [f.name, f.id, f.dept, f.subjects]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    return depMatch && searchMatch;
+  });
 
   return (
     <div>
@@ -1263,8 +1352,35 @@ function SubjectLoadTracker() {
       >
         <div style={{ padding: "12px 18px", background: SIDEBAR_BG }}>
           <h3 style={{ fontWeight: 700, fontSize: 14, color: "#fff" }}>
-            Faculty Subject Load — Spring 2024
+            Faculty Subject Load — Spring 2026
           </h3>
+        </div>
+        <div
+          style={{
+            padding: "12px 16px",
+            borderBottom: "1px solid #f3f4f6",
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+          }}
+        >
+          <input
+            placeholder="Search faculty or subject..."
+            style={{ ...inputStyle, flex: 1 }}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+          <select
+            style={selectStyle}
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+          >
+            {deptOptions.map((dep) => (
+              <option key={dep} value={dep}>
+                {dep}
+              </option>
+            ))}
+          </select>
         </div>
         <table
           style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
@@ -1297,9 +1413,9 @@ function SubjectLoadTracker() {
             </tr>
           </thead>
           <tbody>
-            {faculty.map((f) => (
+            {visibleSubjectLoads.map((f) => (
               <tr
-                key={f.name}
+                key={f._id || f.name}
                 style={{
                   borderTop: "1px solid #f3f4f6",
                   background: f.status === "Overload" ? "#fffbeb" : "",
@@ -1309,7 +1425,7 @@ function SubjectLoadTracker() {
                   <div
                     style={{ display: "flex", gap: 10, alignItems: "center" }}
                   >
-                    <Avatar initials={f.init} />
+                    <Avatar initials={f.initials} />
                     <div>
                       <div style={{ fontWeight: 600, color: "#111827" }}>
                         {f.name}
@@ -1378,7 +1494,7 @@ function SubjectLoadTracker() {
                           prompt("Sections", String(f.sections)),
                         );
                         const status = prompt("Status (Normal / Overload)", f.status);
-                        const init = prompt("Initials", f.init);
+                        const initials = prompt("Initials", f.initials);
                         if (
                           !id ||
                           !name ||
@@ -1388,7 +1504,7 @@ function SubjectLoadTracker() {
                           !hrs ||
                           !Number.isFinite(sections) ||
                           !status ||
-                          !init
+                          !initials
                         )
                           return;
 
@@ -1403,7 +1519,7 @@ function SubjectLoadTracker() {
                             hrs,
                             sections,
                             status,
-                            init,
+                            initials,
                           }),
                         });
                         window.dispatchEvent(new Event("subject-loads:refresh"));
@@ -1507,7 +1623,7 @@ function ScheduleAssignment() {
 
   useEffect(() => {
     const load = async () => {
-      const d = await apiFetch("/api/schedules?term=Spring%202024");
+      const d = await apiFetch("/api/schedules?term=Spring%2020286");
       if (d?.slots && typeof d.slots === "object") setSlots(d.slots);
     };
     load().catch(() => {});
@@ -1518,7 +1634,7 @@ function ScheduleAssignment() {
 
   useEffect(() => {
     const onPublish = async () => {
-      const term = "Spring 2024";
+      const term = "Spring 2026";
       const payload = [];
       for (const t of times) {
         for (const d of days) {
@@ -1557,7 +1673,7 @@ function ScheduleAssignment() {
     >
       <div style={{ padding: "12px 18px", background: SIDEBAR_BG }}>
         <h3 style={{ fontWeight: 700, fontSize: 14, color: "#fff" }}>
-          Weekly Schedule — Spring 2024
+          Weekly Schedule — Spring 2026
         </h3>
       </div>
       <div style={{ overflowX: "auto" }}>
@@ -1578,7 +1694,7 @@ function ScheduleAssignment() {
               >
                 TIME
               </th>
-              {days.map((d) => (
+              {days.map((d) => (  
                 <th
                   key={d}
                   style={{
@@ -1671,7 +1787,7 @@ function AttendanceMonitoring() {
 
   useEffect(() => {
     const load = async () => {
-      const d = await apiFetch("/api/attendance/trend?term=Spring%202024");
+      const d = await apiFetch("/api/attendance/trend?term=Spring%202026");
       const t = d?.trend;
       if (!t) return;
 
@@ -1837,41 +1953,41 @@ function LeaveApplication() {
   const defaultApps = [
     {
       name: "Prof. Jin Gomez",
-      dept: "Computer Science",
+      dept: "Network Implementation and Support II",
       status: "Pending",
       time: "2 hours ago",
-      dates: "Mar 20-22, 2024",
+      dates: "Mar 20-22, 2026",
       type: "Sick Leave",
-      init: "MC",
+      initials: "MC",
       tagColor: "yellow",
-      startDate: "March 20, 2024",
-      endDate: "March 22, 2024",
+      startDate: "March 20, 2026",
+      endDate: "March 22, 2026",
       durationLabel: "3 Days",
     },
     {
       name: "Prof. Supafly",
-      dept: "Mathematics",
+      dept: "Business Process Management in IT",
       status: "Approved",
       time: "1 day ago",
-      dates: "Mar 25-29, 2024",
+      dates: "Mar 25-29, 2026",
       type: "Vacation",
-      init: "SJ",
+      initials: "SJ",
       tagColor: "green",
-      startDate: "March 25, 2024",
-      endDate: "March 29, 2024",
+      startDate: "March 25, 2026",
+      endDate: "March 29, 2026",
       durationLabel: "5 Days",
     },
     {
       name: "Prof. Cardo Mulet",
-      dept: "Engineering",
+      dept: "Information Assurance and Security 2",
       status: "Under Review",
       time: "3 hours ago",
-      dates: "Apr 1-3, 2024",
+      dates: "Apr 1-3, 2026",
       type: "Conference",
-      init: "RM",
+      initials: "RM",
       tagColor: "blue",
-      startDate: "April 1, 2024",
-      endDate: "April 3, 2024",
+      startDate: "April 1, 2026",
+      endDate: "April 3, 2026",
       durationLabel: "3 Days",
     },
     {
@@ -1879,12 +1995,12 @@ function LeaveApplication() {
       dept: "Biology",
       status: "Needs Info",
       time: "5 hours ago",
-      dates: "Mar 28-30, 2024",
+      dates: "Mar 28-30, 2026",
       type: "Personal",
-      init: "ED",
+      initials: "ED",
       tagColor: "red",
-      startDate: "March 28, 2024",
-      endDate: "March 30, 2024",
+      startDate: "March 28, 2026",
+      endDate: "March 30, 2026",
       durationLabel: "3 Days",
     },
   ];
@@ -1903,7 +2019,7 @@ function LeaveApplication() {
       time: l.submittedAtLabel,
       dates: `${l.startDate} - ${l.endDate}`,
       type: l.type,
-      init: l.init,
+      initials: l.initials,
       tagColor: l.tagColor,
       startDate: l.startDate,
       endDate: l.endDate,
@@ -1967,7 +2083,7 @@ function LeaveApplication() {
             }}
           >
             <div style={{ display: "flex", gap: 12 }}>
-              <Avatar initials={ap.init} />
+              <Avatar initials={ap.initials} />
               <div style={{ flex: 1 }}>
                 <div
                   style={{
@@ -2054,7 +2170,7 @@ function LeaveApplication() {
             borderBottom: "1px solid #f3f4f6",
           }}
         >
-          <Avatar initials={a.init} size={48} />
+          <Avatar initials={a.initials} size={48} />
           <div>
             <div style={{ fontWeight: 700, fontSize: 15, color: "#111827" }}>
               {a.name}
@@ -2205,10 +2321,66 @@ function SalaryGrade() {
           marginBottom: 20,
         }}
       >
-        <div style={{ padding: "12px 18px", background: SIDEBAR_BG }}>
+        <div
+          style={{
+            padding: "12px 18px",
+            background: SIDEBAR_BG,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <h3 style={{ fontWeight: 700, fontSize: 14, color: "#fff" }}>
             Salary Grade Tables
           </h3>
+          <button
+            style={{ ...btnPrimary, background: "#fff", color: SIDEBAR_BG }}
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent("modal:open", {
+                  detail: {
+                    type: "form",
+                    title: "New Salary Grade",
+                    primaryColor: "#3b82f6",
+                    submitLabel: "Create Grade",
+                    initialValues: {
+                      grade: "",
+                      position: "",
+                      steps: "8 Steps",
+                      base: "",
+                      max: "",
+                    },
+                    fields: [
+                      { name: "grade", label: "Grade (e.g., SG-24)", type: "text" },
+                      { name: "position", label: "Position", type: "text" },
+                      { name: "steps", label: "Steps", type: "text" },
+                      { name: "base", label: "Base salary", type: "text" },
+                      { name: "max", label: "Max salary", type: "text", fullWidth: true },
+                    ],
+                    onSubmit: async (vals) => {
+                      if (!vals.grade || !vals.position || !vals.steps || !vals.base || !vals.max) {
+                        throw new Error("Please fill out all required fields.");
+                      }
+                      await apiFetch("/api/salary/grades", {
+                        method: "POST",
+                        body: JSON.stringify({
+                          grade: vals.grade,
+                          position: vals.position,
+                          steps: vals.steps,
+                          base: vals.base,
+                          max: vals.max,
+                          status: "Active",
+                        }),
+                      });
+                      window.dispatchEvent(new Event("salary:refresh"));
+                    },
+                  },
+                }),
+              )
+            }
+          >
+            + Add Grade
+          </button>
         </div>
         <table
           style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
@@ -2435,56 +2607,59 @@ function TeachingHistory() {
   const defaultRows = [
     {
       name: "Prof. Jin Gomez",
-      dept: "Computer Science",
-      term: "Spring 2024",
+      dept: "Network Implementation and Support II",
+      term: "Spring 2026",
       subject: "Data Structures",
       code: "CS-201",
       sections: 3,
       units: 9,
       perf: "Excellent",
       rating: 4.8,
-      init: "SJ",
+      initials: "SJ",
     },
     {
       name: "Prof. Supafly",
-      dept: "Mathematics",
-      term: "Fall 2023",
+      dept: "Business Process Management in IT",
+      term: "Fall 2026",
       subject: "Calculus I",
       code: "MATH-101",
       sections: 4,
       units: 12,
       perf: "Very Good",
       rating: 4.5,
-      init: "MC",
+      initials: "MC",
     },
     {
       name: "Prof. Hev Abai",
       dept: "Biology",
-      term: "Spring 2024",
+      term: "Spring 2026",
       subject: "Molecular Biology",
       code: "BIO-301",
       sections: 2,
       units: 6,
       perf: "Good",
       rating: 4.2,
-      init: "ER",
+      initials: "ER",
     },
     {
       name: "Prof. Cardo Mulet",
-      dept: "Engineering",
-      term: "Fall 2023",
+      dept: "Information Assurance and Security 2",
+      term: "Fall 2026",
       subject: "Thermodynamics",
       code: "ENG-205",
-      sections: 2,
+      sections: 2,  
       units: 6,
       perf: "Excellent",
       rating: 4.9,
-      init: "DK",
+      initials: "DK",
     },
   ];
   const [rows, setRows] = useState(defaultRows);
   const [total, setTotal] = useState(127);
   const limit = 4;
+  const [searchText, setSearchText] = useState("");
+  const [deptFilter, setDeptFilter] = useState("All Departments");
+  const [deptOptions, setDeptOptions] = useState(["All Departments"]);
 
   const load = async (p = page) => {
     const d = await apiFetch(
@@ -2499,7 +2674,33 @@ function TeachingHistory() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
+  useEffect(() => {
+    const loadDepartments = async () => {
+      const d = await apiFetch("/api/departments");
+      const list = Array.isArray(d?.departments) ? d.departments : [];
+      if (list.length) {
+        setDeptOptions(["All Departments", ...list]);
+        return;
+      }
+      const local = Array.from(
+        new Set((rows || []).map((r) => r.dept).filter(Boolean)),
+      ).sort();
+      setDeptOptions(["All Departments", ...local]);
+    };
+    loadDepartments().catch(() => {});
+  }, [rows]);
+
   const perfColor = { Excellent: "green", "Very Good": "blue", Good: "teal" };
+  const visibleRows = (rows || []).filter((r) => {
+    const depMatch = deptFilter === "All Departments" || r.dept === deptFilter;
+    const q = searchText.trim().toLowerCase();
+    const searchMatch =
+      !q ||
+      [r.name, r.subject, r.code, r.term, r.dept]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q));
+    return depMatch && searchMatch;
+  });
   return (
     <div
       style={{
@@ -2510,9 +2711,48 @@ function TeachingHistory() {
       }}
     >
       <div style={{ padding: "12px 18px", background: SIDEBAR_BG }}>
-        <h3 style={{ fontWeight: 700, fontSize: 14, color: "#fff" }}>
-          Teaching Assignment History
-        </h3>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <h3 style={{ fontWeight: 700, fontSize: 14, color: "#fff", margin: 0 }}>
+            Teaching Assignment History
+          </h3>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              placeholder="Search assignments..."
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              style={{
+                ...inputStyle,
+                minWidth: 220,
+                background: "rgba(255,255,255,0.16)",
+                border: "1px solid rgba(255,255,255,0.28)",
+                color: "#fff",
+              }}
+            />
+            <select
+              style={{
+                ...selectStyle,
+                background: "rgba(255,255,255,0.16)",
+                border: "1px solid rgba(255,255,255,0.28)",
+                color: "#fff",
+              }}
+              value={deptFilter}
+              onChange={(e) => setDeptFilter(e.target.value)}
+            >
+              {deptOptions.map((dep) => (
+                <option key={dep} value={dep}>
+                  {dep}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
       </div>
       <table
         style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
@@ -2544,9 +2784,9 @@ function TeachingHistory() {
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {visibleRows.map((r) => (
             <tr
-              key={r.name + r.subject}
+              key={(r._id || r.name) + r.subject}
               style={{ borderTop: "1px solid #f3f4f6" }}
               onMouseEnter={(e) =>
                 (e.currentTarget.style.background = "#f9fafb")
@@ -2555,7 +2795,7 @@ function TeachingHistory() {
             >
               <td style={{ padding: "12px 16px" }}>
                 <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <Avatar initials={r.init} />
+                  <Avatar initials={r.initials} />
                   <div>
                     <div style={{ fontWeight: 600, color: "#111827" }}>
                       {r.name}
@@ -2669,8 +2909,9 @@ function ClearanceSystem() {
       const data = Array.isArray(d?.clearances) ? d.clearances : [];
       setRows(data);
       if (!selectedId && data.length) setSelectedId(data[0]._id);
-      if (selectedId && !data.some((x) => x._id === selectedId))
+      if (selectedId && !data.some((x) => x._id === selectedId)) {
         setSelectedId(data.length ? data[0]._id : null);
+      }
     };
     load().catch(() => {});
     const onRefresh = () => load().catch(() => {});
@@ -2679,14 +2920,7 @@ function ClearanceSystem() {
   }, [selectedId]);
 
   const selected = rows.find((r) => r._id === selectedId) || null;
-
-  const statusColor = (s) => {
-    const map = {
-      Pending: "yellow",
-      Completed: "green",
-    };
-    return map[s] || "gray";
-  };
+  const statusColor = (s) => (s === "Completed" ? "green" : "yellow");
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 20 }}>
@@ -2698,10 +2932,76 @@ function ClearanceSystem() {
           overflow: "hidden",
         }}
       >
-        <div style={{ padding: "14px 20px", background: SIDEBAR_BG }}>
-          <h3 style={{ fontWeight: 700, fontSize: 15, color: "#fff" }}>
-            Clearances <span style={{ opacity: 0.9 }}>({rows.length})</span>
+        <div
+          style={{
+            padding: "12px 18px",
+            background: SIDEBAR_BG,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <h3 style={{ fontWeight: 700, fontSize: 14, color: "#fff" }}>
+            Clearance System
           </h3>
+          <button
+            style={{ ...btnPrimary, background: "#fff", color: SIDEBAR_BG }}
+            onClick={() => {
+              window.dispatchEvent(
+                new CustomEvent("modal:open", {
+                  detail: {
+                    type: "form",
+                    title: "New Clearance",
+                    primaryColor: "#3b82f6",
+                    submitLabel: "Create Clearance",
+                    initialValues: {
+                      facultyName: "",
+                      status: "Pending",
+                      requirements: "Leave clearance, Document verification",
+                    },
+                    fields: [
+                      { name: "facultyName", label: "Faculty name", type: "text" },
+                      {
+                        name: "status",
+                        label: "Status",
+                        type: "select",
+                        options: [
+                          { value: "Pending", label: "Pending" },
+                          { value: "Completed", label: "Completed" },
+                        ],
+                      },
+                      {
+                        name: "requirements",
+                        label: "Requirements (comma-separated)",
+                        type: "textarea",
+                        fullWidth: true,
+                      },
+                    ],
+                    onSubmit: async (vals) => {
+                      if (!vals.facultyName || !vals.status) {
+                        throw new Error("Please fill out all required fields.");
+                      }
+                      const requirements = (vals.requirements || "")
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean);
+                      await apiFetch("/api/clearance", {
+                        method: "POST",
+                        body: JSON.stringify({
+                          facultyName: vals.facultyName,
+                          status: vals.status,
+                          requirements,
+                        }),
+                      });
+                      window.dispatchEvent(new Event("clearance:refresh"));
+                    },
+                  },
+                }),
+              );
+            }}
+          >
+            + New Clearance
+          </button>
         </div>
 
         {rows.map((r) => (
@@ -2732,12 +3032,6 @@ function ClearanceSystem() {
             </div>
           </div>
         ))}
-
-        {!rows.length && (
-          <div style={{ padding: 28, color: "#6b7280", fontSize: 13 }}>
-            No clearances yet. Click <b>+ New Clearance</b> to create one.
-          </div>
-        )}
       </div>
 
       <div
@@ -2750,36 +3044,31 @@ function ClearanceSystem() {
         }}
       >
         {!selected ? (
-          <div style={{ color: "#6b7280", fontSize: 13 }}>Select a clearance to view details.</div>
+          <div style={{ color: "#6b7280", fontSize: 13 }}>
+            Select a clearance to view details.
+          </div>
         ) : (
           <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>
-                  {selected.facultyName}
-                </div>
-                <div style={{ color: "#6b7280", fontSize: 12, marginTop: 4 }}>
-                  Status
-                </div>
+              <div style={{ fontWeight: 800, fontSize: 16, color: "#111827" }}>
+                {selected.facultyName}
               </div>
               {badge(selected.status || "Pending", statusColor(selected.status))}
             </div>
 
-            <div style={{ borderTop: "1px solid #f3f4f6", paddingTop: 12 }}>
-              <h4 style={{ fontWeight: 700, fontSize: 13, color: "#374151", marginBottom: 8 }}>
-                Requirements
-              </h4>
-              <div style={{ color: "#111827", fontSize: 13, lineHeight: 1.6 }}>
-                {Array.isArray(selected.requirements) && selected.requirements.length ? (
-                  <ul style={{ margin: 0, paddingLeft: 18 }}>
-                    {selected.requirements.map((req, idx) => (
-                      <li key={`${req}-${idx}`}>{req}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <span style={{ color: "#6b7280" }}>No requirements listed.</span>
-                )}
-              </div>
+            <h4 style={{ fontWeight: 700, fontSize: 13, color: "#374151", marginBottom: 8 }}>
+              Application Details
+            </h4>
+            <div style={{ color: "#111827", fontSize: 13, lineHeight: 1.6 }}>
+              {Array.isArray(selected.requirements) && selected.requirements.length ? (
+                <ul style={{ margin: 0, paddingLeft: 18 }}>
+                  {selected.requirements.map((req, idx) => (
+                    <li key={`${req}-${idx}`}>{req}</li>
+                  ))}
+                </ul>
+              ) : (
+                <span style={{ color: "#6b7280" }}>No requirements listed.</span>
+              )}
             </div>
 
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
@@ -2798,22 +3087,6 @@ function ClearanceSystem() {
                 }}
               >
                 ✓ Mark Completed
-              </button>
-              <button
-                style={{ ...btnPrimary, background: SIDEBAR_BG }}
-                onClick={async () => {
-                  await apiFetch(`/api/clearance/${selected._id}`, {
-                    method: "PUT",
-                    body: JSON.stringify({
-                      facultyName: selected.facultyName,
-                      status: "Pending",
-                      requirements: selected.requirements || [],
-                    }),
-                  });
-                  window.dispatchEvent(new Event("clearance:refresh"));
-                }}
-              >
-                ↺ Set Pending
               </button>
               <button
                 style={{ ...btnPrimary, background: "#ef4444" }}
@@ -3048,6 +3321,17 @@ const inputStyle = {
   width: "100%",
   boxSizing: "border-box",
 };
+const btnOutline = {
+  background: "#ffffff",
+  color: "#374151",
+  border: "1px solid #d1d5db",
+  borderRadius: 6,
+  padding: "7px 14px",
+  cursor: "pointer",
+  fontSize: 13,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+};
 const btnPrimary = {
   background: SIDEBAR_BG,
   color: "#fff",
@@ -3140,16 +3424,129 @@ const TOP_NAV_LINKS = [
   "Privacy Policy",
 ];
 
-export default function FacultyHub() {
-  const [activePage, setActivePage] = useState("dashboard");
-  const [activeTopNav, setActiveTopNav] = useState("Faculty Hub Home");
-  const PageComponent = PAGE_COMPONENTS[activePage];
-  const meta = PAGE_TITLES[activePage];
-  const [modalState, setModalState] = useState(null);
+function Login({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Login failed");
+      onLogin(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "radial-gradient(circle at top right, #332b72 0%, #202b68 30%, #21357a 70%, #1e1e55 100%)",
+      fontFamily: "Inter, system-ui, sans-serif",
+      position: "relative",
+      overflow: "hidden"
+    }}>
+      <div style={{ position: "absolute", top: "-15%", left: "-10%", width: "60%", height: "60%", background: "radial-gradient(circle, rgba(51,43,114,0.7), transparent 70%)", borderRadius: "50%" }} />
+      <div style={{ position: "absolute", bottom: "-20%", right: "-10%", width: "70%", height: "70%", background: "radial-gradient(circle, rgba(33,53,122,0.6), transparent 70%)", borderRadius: "50%" }} />
+
+      <div style={{
+        background: "#fff",
+        padding: "45px 40px",
+        borderRadius: "16px",
+        boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+        width: "100%",
+        maxWidth: "380px",
+        position: "relative",
+        zIndex: 10
+      }}>
+        <div style={{ textAlign: "center", marginBottom: "35px" }}>
+          <img src={LOGO_SRC} alt="Logo" style={{ height: "65px", marginBottom: "16px", borderRadius: "50%", border: "1px solid #e5e7eb", padding: "2px" }} />
+          <h2 style={{ margin: 0, color: "#1e1e55", fontSize: "22px", fontWeight: "800", letterSpacing: "-0.5px" }}>Faculty-Hub</h2>
+          <p style={{ margin: "6px 0 0", color: "#6b7280", fontSize: "14px", fontWeight: "500" }}>Automated Online Learning System</p>
+        </div>
+
+        <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", fontSize: "12px", fontWeight: "700", color: "#111827" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="5" width="18" height="14" rx="2" ry="2"/><polyline points="3 7 12 13 21 7"/></svg>
+              Email Address
+            </label>
+            <input type="text" value={username} onChange={e => setUsername(e.target.value)} placeholder="Enter your email" required style={{ width: "100%", padding: "12px 14px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box", outline: "none", transition: "all 0.2s" }} onFocus={e => { e.target.style.borderColor = "#3b82f6"; e.target.style.boxShadow = "0 0 0 3px rgba(59,130,246,0.1)"; }} onBlur={e => { e.target.style.borderColor = "#d1d5db"; e.target.style.boxShadow = "none"; }} />
+          </div>
+
+          <div>
+            <label style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", fontSize: "12px", fontWeight: "700", color: "#111827" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Password
+            </label>
+            <div style={{ position: "relative" }}>
+              <input type={showPassword ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="Enter your password" required style={{ width: "100%", padding: "12px 40px 12px 14px", border: "1px solid #d1d5db", borderRadius: "8px", fontSize: "14px", boxSizing: "border-box", outline: "none", transition: "all 0.2s" }} onFocus={e => { e.target.style.borderColor = "#3b82f6"; e.target.style.boxShadow = "0 0 0 3px rgba(59,130,246,0.1)"; }} onBlur={e => { e.target.style.borderColor = "#d1d5db"; e.target.style.boxShadow = "none"; }} />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", padding: 0, cursor: "pointer", color: "#9ca3af" }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  {showPassword ? <><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></> : <><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></>}
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#16a34a", padding: "12px", borderRadius: "8px", fontSize: "12px", display: "flex", alignItems: "center", gap: "10px", marginTop: "4px", fontWeight: "500" }}>
+            <div style={{ background: "#16a34a", color: "#fff", borderRadius: "50%", width: "16px", height: "16px", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            Secure login &ndash; CAPTCHA appears after 3 failed attempts
+          </div>
+
+          {error && <div style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", padding: "12px", borderRadius: "8px", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px", fontWeight: "500" }}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>{error}</div>}
+
+          <button type="submit" disabled={loading} style={{ background: "#202b68", color: "#fff", border: "none", padding: "14px", borderRadius: "8px", cursor: "pointer", fontSize: "15px", fontWeight: "700", marginTop: "6px", display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", transition: "background 0.2s" }} onMouseEnter={e => e.currentTarget.style.background = "#2a3a8a"} onMouseLeave={e => e.currentTarget.style.background = "#202b68"}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+            {loading ? "Signing In..." : "Sign In"}
+          </button>
+        </form>
+
+        <div style={{ background: "#f9fafb", color: "#6b7280", padding: "10px", borderRadius: "6px", fontSize: "12px", display: "flex", alignItems: "center", gap: "8px", marginTop: "24px", justifyContent: "center" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#9ca3af"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Locked for 30 min after 5 failed attempts.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProtectedRoute({ children, isAuthenticated }) {
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
+}
+
+function FacultyHubLayout({ user, onLogout, modalState, setModalState, activeTopNav, setActiveTopNav }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  
+  const activePage = location.pathname.substring(1) || "dashboard";
+  const PageComponent = PAGE_COMPONENTS[activePage] || PAGE_COMPONENTS["dashboard"];
+  const meta = PAGE_TITLES[activePage] || PAGE_TITLES["dashboard"];
 
   const handleMetaClick = async () => {
     if (activePage === "dashboard") {
-      setActivePage("faculty");
+      navigate("/faculty");
       return;
     }
 
@@ -3168,7 +3565,7 @@ export default function FacultyHub() {
           load: "18 Units",
           att: "Present",
           clear: "Pending",
-          init: "",
+          initials: "",
         },
         fields: [
           { name: "name", label: "Faculty name", type: "text" },
@@ -3205,7 +3602,7 @@ export default function FacultyHub() {
               { value: "Incomplete", label: "Incomplete" },
             ],
           },
-          { name: "init", label: "Initials (e.g., MC)", type: "text", fullWidth: true },
+          { name: "initials", label: "Initials (e.g., MC)", type: "text", fullWidth: true },
         ],
         onSubmit: async (vals) => {
           if (
@@ -3217,7 +3614,7 @@ export default function FacultyHub() {
             !vals.load ||
             !vals.att ||
             !vals.clear ||
-            !vals.init
+            !vals.initials
           ) {
             throw new Error("Please fill out all required fields.");
           }
@@ -3232,7 +3629,7 @@ export default function FacultyHub() {
               load: vals.load,
               att: vals.att,
               clear: vals.clear,
-              init: vals.init,
+              initials: vals.initials,
             }),
           });
           window.dispatchEvent(new Event("faculty:refresh"));
@@ -3256,10 +3653,10 @@ export default function FacultyHub() {
           hrs: "18 hrs",
           sections: "3",
           status: "Normal",
-          init: "",
+          initials: "",
         },
         fields: [
-          { name: "id", label: "Faculty ID (e.g., FAC-2024-0123)", type: "text" },
+          { name: "id", label: "Faculty ID (e.g., FAC-2026-0123)", type: "text" },
           { name: "name", label: "Faculty name", type: "text" },
           { name: "dept", label: "Department", type: "text" },
           { name: "subjects", label: "Subjects (comma-separated)", type: "text", fullWidth: true },
@@ -3275,7 +3672,7 @@ export default function FacultyHub() {
               { value: "Overload", label: "Overload" },
             ],
           },
-          { name: "init", label: "Initials", type: "text", fullWidth: true },
+          { name: "initials", label: "Initials", type: "text", fullWidth: true },
         ],
         onSubmit: async (vals) => {
           const units = Number(vals.units);
@@ -3289,7 +3686,7 @@ export default function FacultyHub() {
             !vals.hrs ||
             !Number.isFinite(sections) ||
             !vals.status ||
-            !vals.init
+            !vals.initials
           ) {
             throw new Error("Please fill out all required fields with valid numbers.");
           }
@@ -3304,7 +3701,7 @@ export default function FacultyHub() {
               hrs: vals.hrs,
               sections,
               status: vals.status,
-              init: vals.init,
+              initials: vals.initials,
             }),
           });
           window.dispatchEvent(new Event("subject-loads:refresh"));
@@ -3326,7 +3723,7 @@ export default function FacultyHub() {
           startDate: "",
           endDate: "",
           durationLabel: "",
-          init: "",
+          initials: "",
           tagColor: "yellow",
           submittedAtLabel: "just now",
           reason: "",
@@ -3348,7 +3745,7 @@ export default function FacultyHub() {
           { name: "startDate", label: "Start date label", type: "text" },
           { name: "endDate", label: "End date label", type: "text" },
           { name: "durationLabel", label: "Duration label (e.g., 3 Days)", type: "text" },
-          { name: "init", label: "Initials", type: "text" },
+          { name: "initials", label: "Initials", type: "text" },
           {
             name: "tagColor",
             label: "Badge color",
@@ -3371,7 +3768,7 @@ export default function FacultyHub() {
             !vals.startDate ||
             !vals.endDate ||
             !vals.durationLabel ||
-            !vals.init
+            !vals.initials
           ) {
             throw new Error("Please fill out all required fields.");
           }
@@ -3387,7 +3784,7 @@ export default function FacultyHub() {
               endDate: vals.endDate,
               durationLabel: vals.durationLabel,
               submittedAtLabel: vals.submittedAtLabel || "just now",
-              init: vals.init,
+              initials: vals.initials,
               tagColor: vals.tagColor || "yellow",
             }),
           });
@@ -3444,7 +3841,7 @@ export default function FacultyHub() {
     }
 
     if (activePage === "attendance") {
-      const d = await apiFetch("/api/attendance/trend?term=Spring%202024");
+      const d = await apiFetch("/api/attendance/trend?term=Spring%202026");
       const blob = new Blob([JSON.stringify(d, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -3534,16 +3931,6 @@ export default function FacultyHub() {
     };
     window.addEventListener("modal:open", onOpen);
     return () => window.removeEventListener("modal:open", onOpen);
-  }, []);
-
-  useEffect(() => {
-    const onNav = (e) => {
-      const pageId = e?.detail?.pageId;
-      if (!pageId) return;
-      setActivePage(pageId);
-    };
-    window.addEventListener("nav:setPage", onNav);
-    return () => window.removeEventListener("nav:setPage", onNav);
   }, []);
 
   return (
@@ -3712,7 +4099,7 @@ export default function FacultyHub() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActivePage(item.id)}
+                  onClick={() => navigate("/" + item.id)}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -3762,11 +4149,14 @@ export default function FacultyHub() {
             <Avatar initials="AU" size={32} />
             <div>
               <div style={{ fontWeight: 600, fontSize: 12, color: "#fff" }}>
-                Admin User
+                {user?.username || "Admin User"}
               </div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
-                admin@bcp.edu.ph
-              </div>
+              <button 
+                onClick={onLogout}
+                style={{ background: "transparent", border: "none", padding: 0, color: "rgba(255,255,255,0.6)", fontSize: 11, cursor: "pointer", textDecoration: "underline" }}
+              >
+                Sign Out
+              </button>
             </div>
           </div>
         </aside>
@@ -3816,5 +4206,51 @@ export default function FacultyHub() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FacultyHub() {
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("token"));
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("user")) || null; } catch { return null; }
+  });
+  const [modalState, setModalState] = useState(null);
+  const [activeTopNav, setActiveTopNav] = useState("Faculty Hub Home");
+
+  const handleLogin = (data) => {
+    localStorage.setItem("token", data.token);
+    localStorage.setItem("user", JSON.stringify(data.user));
+    setIsAuthenticated(true);
+    setUser(data.user);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    setIsAuthenticated(false);
+    setUser(null);
+  };
+
+  return (
+    <Router>
+      <Routes>
+        <Route path="/login" element={
+          isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />
+        } />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/*" element={
+          <ProtectedRoute isAuthenticated={isAuthenticated}>
+            <FacultyHubLayout 
+              user={user} 
+              onLogout={handleLogout} 
+              modalState={modalState} 
+              setModalState={setModalState}
+              activeTopNav={activeTopNav}
+              setActiveTopNav={setActiveTopNav}
+            />
+          </ProtectedRoute>
+        } />
+      </Routes>
+    </Router>
   );
 }
