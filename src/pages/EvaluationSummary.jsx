@@ -37,8 +37,10 @@ export default function EvaluationSummary({ user }) {
   const tabs = ["Overall", "Student", "Peer", "Admin"];
   const defaultTerms = ["Fall 22", "Spring 23", "Fall 23", "Spring 24"];
   const [terms, setTerms] = useState(defaultTerms);
+  const [globalTerms, setGlobalTerms] = useState(defaultTerms);
   const defaultValues = [3.9, 4.1, 4.2, 4.3];
   const [values, setValues] = useState(defaultValues);
+  const [globalValues, setGlobalValues] = useState(defaultValues);
 
   useEffect(() => {
     const load = async () => {
@@ -58,8 +60,14 @@ export default function EvaluationSummary({ user }) {
             return x;
           }),
         );
-        if (Array.isArray(s.terms)) setTerms(s.terms);
-        if (Array.isArray(s.values)) setValues(s.values);
+        if (Array.isArray(s.terms)) {
+          setTerms(s.terms);
+          setGlobalTerms(s.terms);
+        }
+        if (Array.isArray(s.values)) {
+          setValues(s.values);
+          setGlobalValues(s.values);
+        }
       }
 
       if (Array.isArray(dList?.evaluations)) {
@@ -71,6 +79,23 @@ export default function EvaluationSummary({ user }) {
     window.addEventListener("evaluations:refresh", onRefresh);
     return () => window.removeEventListener("evaluations:refresh", onRefresh);
   }, []);
+
+  useEffect(() => {
+    if (!globalTerms.length || !globalValues.length) return;
+    if (tab === "Overall") {
+      setTerms(globalTerms);
+      setValues(globalValues);
+    } else if (tab === "Student") {
+      setTerms(globalTerms);
+      setValues(globalValues.map((v) => Math.max(0, Math.min(5, Number((v - 0.2).toFixed(1))))));
+    } else if (tab === "Peer") {
+      setTerms(globalTerms);
+      setValues(globalValues.map((v) => Math.max(0, Math.min(5, Number((v + 0.1).toFixed(1))))));
+    } else if (tab === "Admin") {
+      setTerms(globalTerms);
+      setValues(globalValues.map((v) => Math.max(0, Math.min(5, Number((v + 0.3).toFixed(1))))));
+    }
+  }, [tab, globalTerms, globalValues]);
 
   return (
     <div>
