@@ -454,7 +454,7 @@ export default function FacultyHubLayout({ user, onLogout, modalState, setModalS
             flexShrink: 0,
           }}
         />
-        {TOP_NAV_LINKS.map((link) => (
+        {["Faculty Hub Home", "Quick Actions", "Resources", "Help"].map((link) => (
           <button
             key={link}
             onClick={() => setActiveTopNav(link)}
