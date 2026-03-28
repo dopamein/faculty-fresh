@@ -40,6 +40,17 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true, service: "faculty-fresh-api", dbConnected: isConnected });
 });
 
+// Manual seed route for Serverless deployments
+app.get("/api/seed", async (req, res) => {
+  try {
+    await seedDatabase();
+    res.json({ message: "Database seeded successfully", user: "admin", password: "password123" });
+  } catch (err) {
+    console.error("Seeding error:", err);
+    res.status(500).json({ error: "Failed to seed database" });
+  }
+});
+
 app.use("/api", apiRoutes);
 
 // Basic error handler
