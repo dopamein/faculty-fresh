@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
-import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal } from "../components/Shared";
+import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal, toast } from "../components/Shared";
 
 export default function TeachingHistory({ user }) {
   const [page, setPage] = useState(1);
@@ -151,11 +151,14 @@ export default function TeachingHistory({ user }) {
                           ] }
                         ],
                         onSubmit: async (vals) => {
-                          await apiFetch("/api/teaching-history", {
-                            method: "POST",
-                            body: JSON.stringify({ ...vals, sections: Number(vals.sections), units: Number(vals.units) })
-                          });
-                          await load();
+                          try {
+                            await apiFetch("/api/teaching-history", {
+                              method: "POST",
+                              body: JSON.stringify({ ...vals, sections: Number(vals.sections), units: Number(vals.units) })
+                            });
+                            toast.success("Assignment added");
+                            await load();
+                          } catch (e) { throw e; }
                         }
                       }
                     })
@@ -291,11 +294,14 @@ export default function TeachingHistory({ user }) {
                         if (val == null) return;
                         const rating = Number(val);
                         if (Number.isNaN(rating)) return;
-                        await apiFetch(`/api/teaching-history/${r._id}/rating`, {
-                          method: "PATCH",
-                          body: JSON.stringify({ rating }),
-                        });
-                        await load();
+                        try {
+                          await apiFetch(`/api/teaching-history/${r._id}/rating`, {
+                            method: "PATCH",
+                            body: JSON.stringify({ rating }),
+                          });
+                          toast.success("Rating updated");
+                          await load();
+                        } catch (e) { toast.error(e.message); }
                       }}
                     >
                       ⭐
@@ -327,11 +333,14 @@ export default function TeachingHistory({ user }) {
                                 ] }
                               ],
                               onSubmit: async (vals) => {
-                                await apiFetch(`/api/teaching-history/${r._id}`, {
-                                  method: "PUT",
-                                  body: JSON.stringify({ ...vals, sections: Number(vals.sections), units: Number(vals.units) })
-                                });
-                                await load();
+                                try {
+                                  await apiFetch(`/api/teaching-history/${r._id}`, {
+                                    method: "PUT",
+                                    body: JSON.stringify({ ...vals, sections: Number(vals.sections), units: Number(vals.units) })
+                                  });
+                                  toast.success("Assignment updated");
+                                  await load();
+                                } catch (e) { throw e; }
                               }
                             }
                           })
@@ -345,8 +354,11 @@ export default function TeachingHistory({ user }) {
                       onClick={async () => {
                         if (!r._id) return;
                         if (confirm("Delete this teaching assignment?")) {
-                          await apiFetch(`/api/teaching-history/${r._id}`, { method: "DELETE" });
-                          await load();
+                          try {
+                            await apiFetch(`/api/teaching-history/${r._id}`, { method: "DELETE" });
+                            toast.success("Assignment deleted");
+                            await load();
+                          } catch (e) { toast.error(e.message); }
                         }
                       }}
                     >

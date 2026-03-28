@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
-import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal } from "../components/Shared";
+import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal, toast } from "../components/Shared";
 
 export default function SubjectLoadTracker({ user }) {
   const stats = [
@@ -72,6 +72,21 @@ export default function SubjectLoadTracker({ user }) {
   const [searchText, setSearchText] = useState("");
   const [deptFilter, setDeptFilter] = useState("All Departments");
   const [deptOptions, setDeptOptions] = useState(["All Departments"]);
+
+  const subjectLoadFields = [
+    { name: "name", label: "Faculty Name", type: "text" },
+    { name: "id", label: "Faculty ID", type: "text" },
+    { name: "initials", label: "Initials", type: "text" },
+    { name: "dept", label: "Department", type: "text" },
+    { name: "subjects", label: "Subjects (comma separated)", type: "text" },
+    { name: "units", label: "Units", type: "number" },
+    { name: "hrs", label: "Hours/Week (e.g. '12 hrs')", type: "text" },
+    { name: "sections", label: "Sections", type: "number" },
+    { name: "status", label: "Status", type: "select", options: [
+      {value: "Normal", label: "Normal"},
+      {value: "Overload", label: "Overload"}
+    ] }
+  ];
 
   useEffect(() => {
     const load = async () => {
@@ -174,26 +189,18 @@ export default function SubjectLoadTracker({ user }) {
                       primaryColor: "#3b82f6",
                       submitLabel: "Add Load",
                       initialValues: { name: "", id: "", dept: "", subjects: "", units: 0, hrs: "0 hrs", sections: 1, status: "Normal", initials: "" },
-                      fields: [
-                        { name: "name", label: "Faculty Name", type: "text" },
-                        { name: "id", label: "Faculty ID", type: "text" },
-                        { name: "initials", label: "Initials", type: "text" },
-                        { name: "dept", label: "Department", type: "text" },
-                        { name: "subjects", label: "Subjects (comma separated)", type: "text" },
-                        { name: "units", label: "Units", type: "number" },
-                        { name: "hrs", label: "Hours/Week (e.g. '12 hrs')", type: "text" },
-                        { name: "sections", label: "Sections", type: "number" },
-                        { name: "status", label: "Status", type: "select", options: [
-                          {value: "Normal", label: "Normal"},
-                          {value: "Overload", label: "Overload"}
-                        ] }
-                      ],
+                      fields: subjectLoadFields,
                       onSubmit: async (vals) => {
-                        await apiFetch("/api/subject-loads", {
-                          method: "POST",
-                          body: JSON.stringify({ ...vals, units: Number(vals.units), sections: Number(vals.sections) })
-                        });
-                        window.dispatchEvent(new Event("subject-loads:refresh"));
+                        try {
+                          await apiFetch("/api/subject-loads", {
+                            method: "POST",
+                            body: JSON.stringify({ ...vals, units: Number(vals.units), sections: Number(vals.sections) })
+                          });
+                          toast.success("Subject load added.");
+                          window.dispatchEvent(new Event("subject-loads:refresh"));
+                        } catch (e) {
+                          throw e;
+                        }
                       }
                     }
                   })
@@ -333,49 +340,32 @@ export default function SubjectLoadTracker({ user }) {
                       <>
                         <button
                           style={iconBtn}
-                          onClick={async () => {
+                          onClick={() => {
                             if (!f._id) return;
-                            const id = prompt("Faculty ID", f.id);
-                            const name = prompt("Faculty name", f.name);
-                            const dept = prompt("Department", f.dept);
-                            const subjects = prompt("Subjects", f.subjects);
-                            const units = Number(prompt("Units", String(f.units)));
-                            const hrs = prompt("Hours/week", f.hrs);
-                            const sections = Number(
-                              prompt("Sections", String(f.sections)),
+                            window.dispatchEvent(
+                              new CustomEvent("modal:open", {
+                                detail: {
+                                  type: "form",
+                                  title: "Edit Subject Load",
+                                  primaryColor: "#f59e0b",
+                                  submitLabel: "Save Changes",
+                                  initialValues: f,
+                                  fields: subjectLoadFields,
+                                  onSubmit: async (vals) => {
+                                    try {
+                                      await apiFetch(`/api/subject-loads/${f._id}`, {
+                                        method: "PUT",
+                                        body: JSON.stringify({ ...vals, units: Number(vals.units), sections: Number(vals.sections) })
+                                      });
+                                      toast.success("Subject load updated.");
+                                      window.dispatchEvent(new Event("subject-loads:refresh"));
+                                    } catch (e) {
+                                      throw e;
+                                    }
+                                  }
+                                }
+                              })
                             );
-                            const status = prompt("Status (Normal / Overload)", f.status);
-                            const initials = prompt("Initials", f.initials);
-                            if (
-                              !id ||
-                              !name ||
-                              !dept ||
-                              !subjects ||
-                              !Number.isFinite(units) ||
-                              !hrs ||
-                              !Number.isFinite(sections) ||
-                              !status ||
-                              !initials
-                            ) {
-                              alert("Invalid input. All fields are required.");
-                              return;
-                            }
-
-                            await apiFetch(`/api/subject-loads/${f._id}`, {
-                              method: "PUT",
-                              body: JSON.stringify({
-                                id,
-                                name,
-                                dept,
-                                subjects,
-                                units,
-                                hrs,
-                                sections,
-                                status,
-                                initials,
-                              }),
-                            });
-                            window.dispatchEvent(new Event("subject-loads:refresh"));
                           }}
                         >
                           ✏️
@@ -386,10 +376,15 @@ export default function SubjectLoadTracker({ user }) {
                             if (!f._id) return;
                             const ok = confirm(`Delete subject load for ${f.name}?`);
                             if (!ok) return;
-                            await apiFetch(`/api/subject-loads/${f._id}`, {
-                              method: "DELETE",
-                            });
-                            window.dispatchEvent(new Event("subject-loads:refresh"));
+                            try {
+                              await apiFetch(`/api/subject-loads/${f._id}`, {
+                                method: "DELETE",
+                              });
+                              toast.success("Subject load deleted.");
+                              window.dispatchEvent(new Event("subject-loads:refresh"));
+                            } catch(e) {
+                              toast.error(`Error deleting: ${e.message}`);
+                            }
                           }}
                         >
                           🗑

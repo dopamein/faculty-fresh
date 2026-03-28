@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
-import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal } from "../components/Shared";
+import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal, toast } from "../components/Shared";
 
 export default function EvaluationSummary({ user }) {
   const [tab, setTab] = useState("Overall");
@@ -227,11 +227,14 @@ export default function EvaluationSummary({ user }) {
                         { name: "comments", label: "Comments", type: "textarea", fullWidth: true }
                       ],
                       onSubmit: async (vals) => {
-                        await apiFetch("/api/evaluations", {
-                          method: "POST",
-                          body: JSON.stringify({ ...vals, rating: Number(vals.rating) })
-                        });
-                        window.dispatchEvent(new Event("evaluations:refresh"));
+                        try {
+                          await apiFetch("/api/evaluations", {
+                            method: "POST",
+                            body: JSON.stringify({ ...vals, rating: Number(vals.rating) })
+                          });
+                          toast.success("Evaluation added");
+                          window.dispatchEvent(new Event("evaluations:refresh"));
+                        } catch (e) { throw e; }
                       }
                     }
                   })
@@ -276,10 +279,13 @@ export default function EvaluationSummary({ user }) {
                                 { name: "comments", label: "Comments", type: "textarea", fullWidth: true }
                               ],
                               onSubmit: async (vals) => {
-                                await apiFetch(`/api/evaluations/${ev._id}`, {
-                                  method: "PUT", body: JSON.stringify({ ...vals, rating: Number(vals.rating) })
-                                });
-                                window.dispatchEvent(new Event("evaluations:refresh"));
+                                try {
+                                  await apiFetch(`/api/evaluations/${ev._id}`, {
+                                    method: "PUT", body: JSON.stringify({ ...vals, rating: Number(vals.rating) })
+                                  });
+                                  toast.success("Evaluation updated");
+                                  window.dispatchEvent(new Event("evaluations:refresh"));
+                                } catch (e) { throw e; }
                               }
                             }
                           })
@@ -287,8 +293,11 @@ export default function EvaluationSummary({ user }) {
                       }}>✏️</button>
                       <button style={iconBtn} onClick={async () => {
                         if (confirm("Delete this evaluation?")) {
-                          await apiFetch(`/api/evaluations/${ev._id}`, { method: "DELETE" });
-                          window.dispatchEvent(new Event("evaluations:refresh"));
+                          try {
+                            await apiFetch(`/api/evaluations/${ev._id}`, { method: "DELETE" });
+                            toast.success("Evaluation deleted");
+                            window.dispatchEvent(new Event("evaluations:refresh"));
+                          } catch (e) { toast.error(e.message); }
                         }
                       }}>🗑</button>
                     </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate, useLocation, Link } from "react-router-dom";
-import { ProtectedRoute } from "./components/Shared";
+import { ProtectedRoute, ToastContainer } from "./components/Shared";
 import FacultyHubLayout from "./components/FacultyHubLayout";
 import Login from "./pages/Login";
 
@@ -48,6 +48,7 @@ export default function FacultyHub() {
   return (
     <Router>
       <Suspense fallback={<div style={{padding: 40}}>Loading...</div>}>
+      <ToastContainer />
       <Routes>
         <Route path="/login" element={
           isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login onLogin={handleLogin} />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
-import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal } from "../components/Shared";
+import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal, toast } from "../components/Shared";
 
 export default function LeaveApplication({ user }) {
   const [selected, setSelected] = useState(0);
@@ -198,8 +198,14 @@ export default function LeaveApplication({ user }) {
                   style={{ ...btnPrimary, background: "#ef4444" }}
                   onClick={async () => {
                     if (!a?._id) return;
-                    await apiFetch(`/api/leaves/${a._id}/deny`, { method: "POST" });
-                    await reload();
+                    if (!window.confirm("Deny this leave?")) return;
+                    try {
+                      await apiFetch(`/api/leaves/${a._id}/deny`, { method: "POST" });
+                      toast.success("Leave request denied.");
+                      await reload();
+                    } catch (e) {
+                      toast.error(`Error denying leave: ${e.message}`);
+                    }
                   }}
                 >
                   ✕ Deny
@@ -208,11 +214,32 @@ export default function LeaveApplication({ user }) {
                   style={{ ...btnPrimary, background: "#22c55e" }}
                   onClick={async () => {
                     if (!a?._id) return;
-                    await apiFetch(`/api/leaves/${a._id}/approve`, { method: "POST" });
-                    await reload();
+                    try {
+                      await apiFetch(`/api/leaves/${a._id}/approve`, { method: "POST" });
+                      toast.success("Leave request approved!");
+                      await reload();
+                    } catch (e) {
+                      toast.error(`Error approving leave: ${e.message}`);
+                    }
                   }}
                 >
                   ✓ Approve
+                </button>
+                <button
+                  style={{ ...btnOutline, color: "#ef4444" }}
+                  onClick={async () => {
+                    if (!a?._id) return;
+                    if (!window.confirm("Permanently delete this application?")) return;
+                    try {
+                      await apiFetch(`/api/leaves/${a._id}`, { method: "DELETE" });
+                      toast.success("Application deleted.");
+                      await reload();
+                    } catch(e) {
+                      toast.error(`Error: ${e.message}`);
+                    }
+                  }}
+                >
+                  🗑
                 </button>
               </>
             )}

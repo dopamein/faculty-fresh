@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
-import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal } from "../components/Shared";
+import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal, toast } from "../components/Shared";
 
 export default function ScheduleAssignment() {
   const times = [
@@ -101,11 +101,16 @@ export default function ScheduleAssignment() {
         }
       }
 
-      await apiFetch(`/api/schedules/${encodeURIComponent(term)}/publish`, {
-        method: "POST",
-        body: JSON.stringify({ slots: payload }),
-      });
-      window.dispatchEvent(new Event("schedules:refresh"));
+      try {
+        await apiFetch(`/api/schedules/${encodeURIComponent(term)}/publish`, {
+          method: "POST",
+          body: JSON.stringify({ slots: payload }),
+        });
+        toast.success(`Schedule for ${term} published successfully!`);
+        window.dispatchEvent(new Event("schedules:refresh"));
+      } catch (e) {
+        toast.error(`Failed to publish: ${e.message}`);
+      }
     };
 
     window.addEventListener("schedule:publish", onPublish);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
-import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal } from "../components/Shared";
+import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal, toast } from "../components/Shared";
 
 export default function ClearanceSystem({ user }) {
   const [rows, setRows] = useState([]);
@@ -24,6 +24,25 @@ export default function ClearanceSystem({ user }) {
 
   const selected = rows.find((r) => r._id === selectedId) || null;
   const statusColor = (s) => (s === "Completed" ? "green" : "yellow");
+
+  const clearanceFields = [
+    { name: "facultyName", label: "Faculty name", type: "text" },
+    {
+      name: "status",
+      label: "Status",
+      type: "select",
+      options: [
+        { value: "Pending", label: "Pending" },
+        { value: "Completed", label: "Completed" },
+      ],
+    },
+    {
+      name: "requirements",
+      label: "Requirements (comma-separated)",
+      type: "textarea",
+      fullWidth: true,
+    },
+  ];
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "1fr 360px", gap: 20 }}>
@@ -63,24 +82,7 @@ export default function ClearanceSystem({ user }) {
                         status: "Pending",
                         requirements: "Leave clearance, Document verification",
                       },
-                      fields: [
-                        { name: "facultyName", label: "Faculty name", type: "text" },
-                        {
-                          name: "status",
-                          label: "Status",
-                          type: "select",
-                          options: [
-                            { value: "Pending", label: "Pending" },
-                            { value: "Completed", label: "Completed" },
-                          ],
-                        },
-                        {
-                          name: "requirements",
-                          label: "Requirements (comma-separated)",
-                          type: "textarea",
-                          fullWidth: true,
-                        },
-                      ],
+                      fields: clearanceFields,
                       onSubmit: async (vals) => {
                         if (!vals.facultyName || !vals.status) {
                           throw new Error("Please fill out all required fields.");
@@ -89,15 +91,20 @@ export default function ClearanceSystem({ user }) {
                           .split(",")
                           .map((s) => s.trim())
                           .filter(Boolean);
-                        await apiFetch("/api/clearance", {
-                          method: "POST",
-                          body: JSON.stringify({
-                            facultyName: vals.facultyName,
-                            status: vals.status,
-                            requirements,
-                          }),
-                        });
-                        window.dispatchEvent(new Event("clearance:refresh"));
+                        try {
+                          await apiFetch("/api/clearance", {
+                            method: "POST",
+                            body: JSON.stringify({
+                              facultyName: vals.facultyName,
+                              status: vals.status,
+                              requirements,
+                            }),
+                          });
+                          toast.success("Clearance created successfully");
+                          window.dispatchEvent(new Event("clearance:refresh"));
+                        } catch (e) {
+                          throw e;
+                        }
                       },
                     },
                   }),
@@ -179,26 +186,76 @@ export default function ClearanceSystem({ user }) {
             {user?.role === "admin" && (
               <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
                 <button
-                  style={{ ...btnPrimary, background: "#22c55e" }}
-                  onClick={async () => {
-                    await apiFetch(`/api/clearance/${selected._id}`, {
-                      method: "PUT",
-                      body: JSON.stringify({
-                        facultyName: selected.facultyName,
-                        status: "Completed",
-                        requirements: selected.requirements || [],
-                      }),
-                    });
-                    window.dispatchEvent(new Event("clearance:refresh"));
+                  style={{ ...btnPrimary, background: "#f59e0b" }}
+                  onClick={() => {
+                    window.dispatchEvent(
+                      new CustomEvent("modal:open", {
+                        detail: {
+                          type: "form",
+                          title: "Edit Clearance",
+                          primaryColor: "#f59e0b",
+                          submitLabel: "Save Changes",
+                          initialValues: {
+                            ...selected,
+                            requirements: Array.isArray(selected.requirements) ? selected.requirements.join(", ") : "",
+                          },
+                          fields: clearanceFields,
+                          onSubmit: async (vals) => {
+                            const requirements = (vals.requirements || "")
+                              .split(",")
+                              .map((s) => s.trim())
+                              .filter(Boolean);
+                            try {
+                              await apiFetch(`/api/clearance/${selected._id}`, {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  facultyName: vals.facultyName,
+                                  status: vals.status,
+                                  requirements,
+                                }),
+                              });
+                              toast.success("Clearance updated");
+                              window.dispatchEvent(new Event("clearance:refresh"));
+                            } catch (e) { throw e; }
+                          }
+                        }
+                      })
+                    );
                   }}
                 >
-                  ✓ Mark Completed
+                  ✏️ Edit
                 </button>
+                {selected.status !== "Completed" && (
+                  <button
+                    style={{ ...btnPrimary, background: "#22c55e" }}
+                    onClick={async () => {
+                      try {
+                        await apiFetch(`/api/clearance/${selected._id}`, {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            facultyName: selected.facultyName,
+                            status: "Completed",
+                            requirements: selected.requirements || [],
+                          }),
+                        });
+                        toast.success("Clearance marked completed");
+                        window.dispatchEvent(new Event("clearance:refresh"));
+                      } catch(e) { toast.error(e.message); }
+                    }}
+                  >
+                    ✓ Mark Completed
+                  </button>
+                )}
                 <button
                   style={{ ...btnPrimary, background: "#ef4444" }}
                   onClick={async () => {
-                    await apiFetch(`/api/clearance/${selected._id}`, { method: "DELETE" });
-                    window.dispatchEvent(new Event("clearance:refresh"));
+                    const ok = confirm("Delete this clearance permanently?");
+                    if (!ok) return;
+                    try {
+                      await apiFetch(`/api/clearance/${selected._id}`, { method: "DELETE" });
+                      toast.success("Clearance deleted");
+                      window.dispatchEvent(new Event("clearance:refresh"));
+                    } catch(e) { toast.error(e.message); }
                   }}
                 >
                   🗑 Delete

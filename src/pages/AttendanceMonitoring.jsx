@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
-import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal } from "../components/Shared";
+import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal, toast } from "../components/Shared";
 
 export default function AttendanceMonitoring({ user }) {
   const [attendanceList, setAttendanceList] = useState([]);
@@ -223,11 +223,14 @@ export default function AttendanceMonitoring({ user }) {
                         { name: "notes", label: "Notes", type: "text", fullWidth: true }
                       ],
                       onSubmit: async (vals) => {
-                        await apiFetch("/api/attendance", {
-                          method: "POST",
-                          body: JSON.stringify(vals)
-                        });
-                        window.dispatchEvent(new Event("attendance:refresh"));
+                        try {
+                          await apiFetch("/api/attendance", {
+                            method: "POST",
+                            body: JSON.stringify(vals)
+                          });
+                          toast.success("Attendance record added");
+                          window.dispatchEvent(new Event("attendance:refresh"));
+                        } catch(e) { throw e; }
                       }
                     }
                   })
@@ -282,10 +285,13 @@ export default function AttendanceMonitoring({ user }) {
                                   { name: "notes", label: "Notes", type: "text", fullWidth: true }
                                 ],
                                 onSubmit: async (vals) => {
-                                  await apiFetch(`/api/attendance/${rec._id}`, {
-                                    method: "PUT", body: JSON.stringify(vals)
-                                  });
-                                  window.dispatchEvent(new Event("attendance:refresh"));
+                                  try {
+                                    await apiFetch(`/api/attendance/${rec._id}`, {
+                                      method: "PUT", body: JSON.stringify(vals)
+                                    });
+                                    toast.success("Record updated");
+                                    window.dispatchEvent(new Event("attendance:refresh"));
+                                  } catch (e) { throw e; }
                                 }
                               }
                             })
@@ -293,8 +299,11 @@ export default function AttendanceMonitoring({ user }) {
                         }}>✏️</button>
                         <button style={iconBtn} onClick={async () => {
                           if (confirm("Delete this record?")) {
-                            await apiFetch(`/api/attendance/${rec._id}`, { method: "DELETE" });
-                            window.dispatchEvent(new Event("attendance:refresh"));
+                            try {
+                              await apiFetch(`/api/attendance/${rec._id}`, { method: "DELETE" });
+                              toast.success("Record deleted");
+                              window.dispatchEvent(new Event("attendance:refresh"));
+                            } catch(e) { toast.error(e.message); }
                           }
                         }}>🗑</button>
                       </div>

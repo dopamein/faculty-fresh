@@ -1,6 +1,44 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate, useLocation, Link } from "react-router-dom";
 
+export const toast = {
+  success: (msg) => window.dispatchEvent(new CustomEvent('toast:show', { detail: { type: 'success', msg } })),
+  error: (msg) => window.dispatchEvent(new CustomEvent('toast:show', { detail: { type: 'error', msg } })),
+  info: (msg) => window.dispatchEvent(new CustomEvent('toast:show', { detail: { type: 'info', msg } }))
+};
+
+export function ToastContainer() {
+  const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    const onShow = (e) => {
+      const id = Date.now() + Math.random();
+      setToasts(prev => [...prev, { ...e.detail, id }]);
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+      }, 3500);
+    };
+    window.addEventListener('toast:show', onShow);
+    return () => window.removeEventListener('toast:show', onShow);
+  }, []);
+
+  return (
+    <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 99999, display: "flex", flexDirection: "column", gap: 10 }}>
+      {toasts.map(t => (
+        <div key={t.id} style={{
+          background: t.type === "error" ? "#fee2e2" : t.type === "success" ? "#dcfce7" : "#fff",
+          color: t.type === "error" ? "#b91c1c" : t.type === "success" ? "#15803d" : "#374151",
+          border: `1px solid ${t.type === "error" ? "#fecaca" : t.type === "success" ? "#bbf7d0" : "#e5e7eb"}`,
+          padding: "12px 20px", borderRadius: 8, boxShadow: "0 10px 25px rgba(0,0,0,0.1)", fontSize: 13, fontWeight: 600,
+          display: "flex", alignItems: "center", gap: 10, transition: "all 0.3s ease"
+        }}>
+          <span style={{fontSize: 16}}>{t.type === "success" ? "✓" : t.type === "error" ? "✕" : "ℹ"}</span> {t.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const SIDEBAR_BG = "#1a0a6b";
 const ACCENT = "#3d2fb0";
 const CONTENT_BG = "#f0f0f0";
@@ -245,7 +283,13 @@ async function apiFetch(path, options = {}) {
   });
   const text = await res.text();
   if (!res.ok) {
-    throw new Error(text || `Request failed: ${res.status}`);
+    let err = text;
+    try {
+      const j = JSON.parse(text);
+      if (j.error) err = j.error;
+      else if (j.message) err = j.message;
+    } catch(e) {}
+    throw new Error(err || `Request failed: ${res.status}`);
   }
   try {
     return text ? JSON.parse(text) : null;

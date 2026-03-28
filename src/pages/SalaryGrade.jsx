@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
-import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal } from "../components/Shared";
+import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal, toast } from "../components/Shared";
 
 export default function SalaryGrade() {
   const defaultGrades = [
@@ -72,6 +72,20 @@ export default function SalaryGrade() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const gradeFields = [
+    { name: "grade", label: "Grade (e.g., SG-24)", type: "text" },
+    { name: "position", label: "Position", type: "text" },
+    { name: "steps", label: "Steps", type: "text" },
+    { name: "base", label: "Base salary", type: "text" },
+    { name: "max", label: "Max salary", type: "text", fullWidth: true },
+  ];
+
+  const itemFields = [
+    { name: "label", label: "Name", type: "text" },
+    { name: "sub", label: "Description", type: "text" },
+    { name: "val", label: "Value (e.g. ₱2,500/hr, 4.5%)", type: "text" },
+  ];
+
   return (
     <div>
       <div
@@ -112,29 +126,28 @@ export default function SalaryGrade() {
                       base: "",
                       max: "",
                     },
-                    fields: [
-                      { name: "grade", label: "Grade (e.g., SG-24)", type: "text" },
-                      { name: "position", label: "Position", type: "text" },
-                      { name: "steps", label: "Steps", type: "text" },
-                      { name: "base", label: "Base salary", type: "text" },
-                      { name: "max", label: "Max salary", type: "text", fullWidth: true },
-                    ],
+                    fields: gradeFields,
                     onSubmit: async (vals) => {
                       if (!vals.grade || !vals.position || !vals.steps || !vals.base || !vals.max) {
                         throw new Error("Please fill out all required fields.");
                       }
-                      await apiFetch("/api/salary/grades", {
-                        method: "POST",
-                        body: JSON.stringify({
-                          grade: vals.grade,
-                          position: vals.position,
-                          steps: vals.steps,
-                          base: vals.base,
-                          max: vals.max,
-                          status: "Active",
-                        }),
-                      });
-                      window.dispatchEvent(new Event("salary:refresh"));
+                      try {
+                        await apiFetch("/api/salary/grades", {
+                          method: "POST",
+                          body: JSON.stringify({
+                            grade: vals.grade,
+                            position: vals.position,
+                            steps: vals.steps,
+                            base: vals.base,
+                            max: vals.max,
+                            status: "Active",
+                          }),
+                        });
+                        toast.success("Salary grade created");
+                        window.dispatchEvent(new Event("salary:refresh"));
+                      } catch (e) {
+                        throw e;
+                      }
                     },
                   },
                 }),
@@ -213,23 +226,36 @@ export default function SalaryGrade() {
                   </button>
                   <button
                     style={iconBtn}
-                    onClick={async () => {
-                      const position = prompt("Position", g.position);
-                      const steps = prompt("Steps", g.steps);
-                      const base = prompt("Base salary", g.base);
-                      const max = prompt("Max salary", g.max);
-                      if (!position || !steps || !base || !max) return;
-                      await apiFetch(`/api/salary/grades/${g._id}`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          position,
-                          steps,
-                          base,
-                          max,
-                          status: "Active",
-                        }),
-                      });
-                      await reload();
+                    onClick={() => {
+                      if (!g._id) return;
+                      window.dispatchEvent(
+                        new CustomEvent("modal:open", {
+                          detail: {
+                            type: "form",
+                            title: "Edit Salary Grade",
+                            primaryColor: "#f59e0b",
+                            submitLabel: "Save Changes",
+                            initialValues: g,
+                            fields: gradeFields,
+                            onSubmit: async (vals) => {
+                              try {
+                                await apiFetch(`/api/salary/grades/${g._id}`, {
+                                  method: "PUT",
+                                  body: JSON.stringify({
+                                    position: vals.position,
+                                    steps: vals.steps,
+                                    base: vals.base,
+                                    max: vals.max,
+                                    status: "Active",
+                                  }),
+                                });
+                                toast.success("Grade updated");
+                                window.dispatchEvent(new Event("salary:refresh"));
+                              } catch(e) { throw e; }
+                            }
+                          }
+                        })
+                      );
                     }}
                   >
                     ✏️
@@ -239,10 +265,15 @@ export default function SalaryGrade() {
                     onClick={async () => {
                       const ok = confirm(`Delete grade ${g.grade}?`);
                       if (!ok || !g._id) return;
-                      await apiFetch(`/api/salary/grades/${g._id}`, {
-                        method: "DELETE",
-                      });
-                      await reload();
+                      try {
+                        await apiFetch(`/api/salary/grades/${g._id}`, {
+                          method: "DELETE",
+                        });
+                        toast.success("Grade deleted");
+                        window.dispatchEvent(new Event("salary:refresh"));
+                      } catch(e) {
+                        toast.error(`Error: ${e.message}`);
+                      }
                     }}
                   >
                     🗑
@@ -271,10 +302,40 @@ export default function SalaryGrade() {
               overflow: "hidden",
             }}
           >
-            <div style={{ padding: "12px 18px", background: SIDEBAR_BG }}>
-              <h3 style={{ fontWeight: 700, fontSize: 14, color: "#fff" }}>
+            <div style={{ padding: "12px 18px", background: SIDEBAR_BG, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ fontWeight: 700, fontSize: 14, color: "#fff", margin: 0 }}>
                 {section.title}
               </h3>
+              <button
+                style={{ ...btnPrimary, background: "#fff", color: SIDEBAR_BG, padding: "4px 8px", fontSize: 12 }}
+                onClick={() => {
+                  window.dispatchEvent(
+                    new CustomEvent("modal:open", {
+                      detail: {
+                        type: "form",
+                        title: `New ${section.title}`,
+                        primaryColor: section.valColor,
+                        submitLabel: "Create",
+                        initialValues: { label: "", sub: "", val: "" },
+                        fields: itemFields,
+                        onSubmit: async (vals) => {
+                          const base = section.title === "Allowances & Benefits" ? "/api/salary/allowances" : "/api/salary/deductions";
+                          try {
+                            await apiFetch(base, {
+                              method: "POST",
+                              body: JSON.stringify(vals),
+                            });
+                            toast.success(`Created successfully`);
+                            window.dispatchEvent(new Event("salary:refresh"));
+                          } catch (e) { throw e; }
+                        }
+                      }
+                    })
+                  );
+                }}
+              >
+                + Add
+              </button>
             </div>
             <div style={{ padding: 16 }}>
               {section.items.map((item) => (
@@ -316,20 +377,31 @@ export default function SalaryGrade() {
                     <div style={{ display: "flex", gap: 6 }}>
                       <button
                         style={iconBtn}
-                        onClick={async () => {
+                        onClick={() => {
                           if (!item._id) return;
-                          const sub = prompt("Description", item.sub);
-                          const val = prompt("Value", item.val);
-                          if (sub == null || val == null) return;
-                          const base =
-                            section.title === "Allowances & Benefits"
-                              ? "/api/salary/allowances"
-                              : "/api/salary/deductions";
-                          await apiFetch(`${base}/${item._id}`, {
-                            method: "PUT",
-                            body: JSON.stringify({ sub, val }),
-                          });
-                          await reload();
+                          window.dispatchEvent(
+                            new CustomEvent("modal:open", {
+                              detail: {
+                                type: "form",
+                                title: `Edit ${item.label}`,
+                                primaryColor: "#f59e0b",
+                                submitLabel: "Save",
+                                initialValues: item,
+                                fields: itemFields,
+                                onSubmit: async (vals) => {
+                                  try {
+                                    const base = section.title === "Allowances & Benefits" ? "/api/salary/allowances" : "/api/salary/deductions";
+                                    await apiFetch(`${base}/${item._id}`, {
+                                      method: "PUT",
+                                      body: JSON.stringify(vals),
+                                    });
+                                    toast.success("Updated successfully");
+                                    window.dispatchEvent(new Event("salary:refresh"));
+                                  } catch (e) { throw e; }
+                                }
+                              }
+                            })
+                          );
                         }}
                       >
                         ✏️
@@ -340,14 +412,14 @@ export default function SalaryGrade() {
                           if (!item._id) return;
                           const ok = confirm(`Delete ${item.label}?`);
                           if (!ok) return;
-                          const base =
-                            section.title === "Allowances & Benefits"
-                              ? "/api/salary/allowances"
-                              : "/api/salary/deductions";
-                          await apiFetch(`${base}/${item._id}`, {
-                            method: "DELETE",
-                          });
-                          await reload();
+                          try {
+                            const base = section.title === "Allowances & Benefits" ? "/api/salary/allowances" : "/api/salary/deductions";
+                            await apiFetch(`${base}/${item._id}`, { method: "DELETE" });
+                            toast.success("Deleted successfully");
+                            window.dispatchEvent(new Event("salary:refresh"));
+                          } catch (e) {
+                            toast.error(`Error: ${e.message}`);
+                          }
                         }}
                       >
                         🗑

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate, Navigate } from "react-router-dom";
-import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal } from "../components/Shared";
+import { SIDEBAR_BG, ACCENT, CONTENT_BG, LOGO_SRC, Icons, NAV_ITEMS, badge, Avatar, inputStyle, btnPrimary, btnOutline, selectStyle, iconBtn, apiFetch, FormModal, toast } from "../components/Shared";
 
 export default function FacultyDirectory() {
   const defaultFaculty = [
@@ -53,6 +53,44 @@ export default function FacultyDirectory() {
   const [searchText, setSearchText] = useState("");
   const [deptFilter, setDeptFilter] = useState("All Departments");
   const [deptOptions, setDeptOptions] = useState(["All Departments"]);
+
+  const facultyFields = [
+    { name: "name", label: "Faculty name", type: "text" },
+    { name: "email", label: "Email", type: "text" },
+    { name: "dept", label: "Department", type: "text" },
+    { name: "rank", label: "Rank", type: "text" },
+    {
+      name: "emp",
+      label: "Employment status",
+      type: "select",
+      options: [
+        { value: "Active", label: "Active" },
+        { value: "On Leave", label: "On Leave" },
+      ],
+    },
+    { name: "load", label: "Load (e.g., 18 Units)", type: "text" },
+    {
+      name: "att",
+      label: "Attendance",
+      type: "select",
+      options: [
+        { value: "Present", label: "Present" },
+        { value: "Absent", label: "Absent" },
+        { value: "On Leave", label: "On Leave" },
+      ],
+    },
+    {
+      name: "clear",
+      label: "Clearance",
+      type: "select",
+      options: [
+        { value: "Pending", label: "Pending" },
+        { value: "Completed", label: "Completed" },
+        { value: "Incomplete", label: "Incomplete" },
+      ],
+    },
+    { name: "initials", label: "Initials (e.g., MC)", type: "text", fullWidth: true },
+  ];
 
   useEffect(() => {
     const load = async () => {
@@ -165,43 +203,7 @@ export default function FacultyDirectory() {
                     clear: "Pending",
                     initials: "",
                   },
-                  fields: [
-                    { name: "name", label: "Faculty name", type: "text" },
-                    { name: "email", label: "Email", type: "text" },
-                    { name: "dept", label: "Department", type: "text" },
-                    { name: "rank", label: "Rank", type: "text" },
-                    {
-                      name: "emp",
-                      label: "Employment status",
-                      type: "select",
-                      options: [
-                        { value: "Active", label: "Active" },
-                        { value: "On Leave", label: "On Leave" },
-                      ],
-                    },
-                    { name: "load", label: "Load (e.g., 18 Units)", type: "text" },
-                    {
-                      name: "att",
-                      label: "Attendance",
-                      type: "select",
-                      options: [
-                        { value: "Present", label: "Present" },
-                        { value: "Absent", label: "Absent" },
-                        { value: "On Leave", label: "On Leave" },
-                      ],
-                    },
-                    {
-                      name: "clear",
-                      label: "Clearance",
-                      type: "select",
-                      options: [
-                        { value: "Pending", label: "Pending" },
-                        { value: "Completed", label: "Completed" },
-                        { value: "Incomplete", label: "Incomplete" },
-                      ],
-                    },
-                    { name: "initials", label: "Initials (e.g., MC)", type: "text", fullWidth: true },
-                  ],
+                  fields: facultyFields,
                   onSubmit: async (vals) => {
                     if (
                       !vals.name ||
@@ -217,21 +219,26 @@ export default function FacultyDirectory() {
                       throw new Error("Please fill out all required fields.");
                     }
 
-                    await apiFetch("/api/faculty", {
-                      method: "POST",
-                      body: JSON.stringify({
-                        name: vals.name,
-                        email: vals.email,
-                        dept: vals.dept,
-                        rank: vals.rank,
-                        emp: vals.emp,
-                        load: vals.load,
-                        att: vals.att,
-                        clear: vals.clear,
-                        initials: vals.initials,
-                      }),
-                    });
-                    window.dispatchEvent(new Event("faculty:refresh"));
+                    try {
+                      await apiFetch("/api/faculty", {
+                        method: "POST",
+                        body: JSON.stringify({
+                          name: vals.name,
+                          email: vals.email,
+                          dept: vals.dept,
+                          rank: vals.rank,
+                          emp: vals.emp,
+                          load: vals.load,
+                          att: vals.att,
+                          clear: vals.clear,
+                          initials: vals.initials,
+                        }),
+                      });
+                      toast.success("Faculty created successfully");
+                      window.dispatchEvent(new Event("faculty:refresh"));
+                    } catch (e) {
+                      throw e;
+                    }
                   },
                 },
               }),
@@ -323,36 +330,45 @@ export default function FacultyDirectory() {
                   </button>
                   <button
                     style={iconBtn}
-                    onClick={async () => {
+                    onClick={() => {
                       if (!f._id) return;
-                      const name = prompt("Faculty name", f.name);
-                      const email = prompt("Email", f.email);
-                      const dept = prompt("Department", f.dept);
-                      const rank = prompt("Rank", f.rank);
-                      const emp = prompt("Employment status", f.emp);
-                      const load = prompt("Load", f.load);
-                      const att = prompt("Attendance", f.att);
-                      const clear = prompt("Clearance", f.clear);
-                      const initials = prompt("Initials", f.initials);
-
-                      if (!name || !email || !dept || !rank || !emp || !load || !att || !clear || !initials)
-                        return;
-
-                      await apiFetch(`/api/faculty/${f._id}`, {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          name,
-                          email,
-                          dept,
-                          rank,
-                          emp,
-                          load,
-                          att,
-                          clear,
-                          initials,
-                        }),
-                      });
-                      window.dispatchEvent(new Event("faculty:refresh"));
+                      window.dispatchEvent(
+                        new CustomEvent("modal:open", {
+                          detail: {
+                            type: "form",
+                            title: "Edit Faculty",
+                            primaryColor: "#f59e0b",
+                            submitLabel: "Save Changes",
+                            initialValues: f,
+                            fields: facultyFields,
+                            onSubmit: async (vals) => {
+                              if (!vals.name || !vals.email || !vals.dept || !vals.rank || !vals.emp || !vals.load || !vals.att || !vals.clear || !vals.initials) {
+                                throw new Error("Please fill out all required fields.");
+                              }
+                              try {
+                                await apiFetch(`/api/faculty/${f._id}`, {
+                                  method: "PUT",
+                                  body: JSON.stringify({
+                                    name: vals.name,
+                                    email: vals.email,
+                                    dept: vals.dept,
+                                    rank: vals.rank,
+                                    emp: vals.emp,
+                                    load: vals.load,
+                                    att: vals.att,
+                                    clear: vals.clear,
+                                    initials: vals.initials,
+                                  }),
+                                });
+                                toast.success("Faculty updated successfully");
+                                window.dispatchEvent(new Event("faculty:refresh"));
+                              } catch(e) {
+                                throw e;
+                              }
+                            },
+                          }
+                        })
+                      );
                     }}
                   >
                     ✏️
@@ -363,10 +379,15 @@ export default function FacultyDirectory() {
                       if (!f._id) return;
                       const ok = confirm(`Delete faculty ${f.name}?`);
                       if (!ok) return;
-                      await apiFetch(`/api/faculty/${f._id}`, {
-                        method: "DELETE",
-                      });
-                      window.dispatchEvent(new Event("faculty:refresh"));
+                      try {
+                        await apiFetch(`/api/faculty/${f._id}`, {
+                          method: "DELETE",
+                        });
+                        toast.success("Faculty deleted");
+                        window.dispatchEvent(new Event("faculty:refresh"));
+                      } catch(e) {
+                        toast.error(`Error deleting: ${e.message}`);
+                      }
                     }}
                   >
                     🗑
