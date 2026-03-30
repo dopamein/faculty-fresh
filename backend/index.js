@@ -27,8 +27,7 @@ app.use(async (req, res, next) => {
     try {
       await mongoose.connect(MONGODB_URI);
       isConnected = true;
-      // Note: We bypass automated seeding in Serverless to prevent 10s timeout limits 
-      // await seedDatabase();
+      await seedDatabase();
     } catch (e) {
       console.error("Vercel DB Connection Error:", e);
     }
