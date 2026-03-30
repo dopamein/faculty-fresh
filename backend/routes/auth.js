@@ -12,7 +12,20 @@ router.post("/login", async (req, res) => {
     const { username, password } = req.body;
 
     // Find user
-    const user = await User.findOne({ username });
+    let user = await User.findOne({ username });
+
+    // Auto-create admin if database is completely empty (first time setup)
+    if (!user && username === "admin") {
+      const userCount = await User.estimatedDocumentCount();
+      if (userCount === 0) {
+        user = await User.create({
+          username: "admin",
+          password: "password123",
+          role: "admin",
+        });
+      }
+    }
+
     if (!user) {
       return res.status(401).json({ error: "Invalid username or password" });
     }
